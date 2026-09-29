@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Offshore wind farm design optimisation: PyWake, NSGA-II and Brightway"
+authors:
+  - family-names: Bandara
+    given-names: Thashmika
+    affiliation: "City St George's, University of London"
+type: software
+license: MIT
+repository-code: "https://github.com/Thashmikab/offshore-wind-layout-cable-tradeoff"
+keywords:
+  - offshore wind
+  - multi-objective optimisation
+  - NSGA-II
+  - life cycle assessment
+  - Brightway
+  - PyWake

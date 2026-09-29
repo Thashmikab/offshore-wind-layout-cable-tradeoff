@@ -1,24 +1,63 @@
-# Offshore wind farm design optimisation: PyWake, NSGA-II and Brightway
+# Offshore wind farm design optimisation
 
-This project connects Brightway life cycle assessment, a material inventory for turbines and subsea cables, and a techno-economic cost model to offshore wind farm design optimisation. The wake physics is PyWake and TopFarm; the search is NSGA-II (pymoo). The same design variables (where each turbine sits, how far the farm is from shore, and in notebook 08 how big the turbines are) are scored for energy, levelised cost and life cycle impacts in one pipeline, so each result is a Pareto front rather than a single answer.
+Layout, siting, cost and life cycle impacts of an offshore wind farm, optimised together: PyWake wake modelling, NSGA-II search (pymoo) and Brightway life cycle assessment in one pipeline.
 
-The test case is a small array off the Yorkshire coast, anywhere from 10 km out to the Dogger Bank, 147 km offshore. The most useful result is that whether cost and carbon agree on where to build depends on one component, the export cable. With the 220 kV cable the cost model assumes, both LCOE and life cycle GWP per MWh are lowest at the 10 km bound. With a 132 kV cable sized to an 80 MW farm, the carbon optimum moves out to about 15 km while the cost optimum stays at the shore. Terrestrial ecotoxicity follows the cable's copper and responds to distance far more strongly than either.
+**How far offshore should an 80 MW wind farm be built when energy, cost, carbon and materials are all counted?**
 
-![Wind speed from the coast to Dogger Bank](figures/05_wind_speed_transect.png)
+![Energy, cost, carbon and ecotoxicity vs distance offshore](figures/hero_distance_tradeoff.png)
 
-## The pipeline
+### Results at a glance
 
+8 × 10 MW turbines off the Yorkshire coast, moving from 10 km to 76 km offshore:
+
+| | Change | Notebook |
+|---|---|---|
+| Annual energy | +6.3% | 06 |
+| LCOE | +46% (£52.9 → £77.3/MWh) | 06 |
+| Life cycle GWP per MWh | +24% | 07 |
+| Terrestrial ecotoxicity per MWh | ×3.4 | 07 |
+| Export cable's share of ecotoxicity at 50 km | 78% | 07 |
+| Lowest-cost site | 10 km, the nearest allowed | 06 |
+| Lowest-carbon site | 10 km with a 220 kV export cable; 14.4 km with a 132 kV cable sized to the farm | 07, 08 |
+
+Moving offshore buys energy slowly and cost quickly. Carbon sits in between, and ecotoxicity, driven by the export cable's copper, rises fastest of all.
+
+> **Scope.** A comparative design model, not a project finance or engineering design. Cable routing is a minimum spanning tree, energy is gross, and the LCA covers materials and processing only. Full list under [Limitations](#limitations).
+
+**Start here:** [06 · Techno-economic siting](06_techno_economic_siting_optimisation.ipynb) for cost, [07 · Life cycle impacts](07_life_cycle_impacts_siting.ipynb) for the Brightway coupling. Notebooks 01–04 build up the wake and layout methods.
+
+**Built with:** PyWake · TopFarm · pymoo (NSGA-II) · Brightway 2.5 · ecoinvent 3.9.1 · Global Wind Atlas
+
+## What I built
+
+The wake physics, optimiser and LCA engine are existing open-source tools. The model that connects them is mine:
+
+- a siting model that moves the farm along a Global Wind Atlas transect, with wind speed at each distance interpolated to hub height from the 100 m and 150 m layers
+- a turbine mass and material model for 8–12 MW turbines, fitted to published curves (Li et al. 2022) and checked against the DTU 10 MW reference turbine
+- a subsea cable inventory (copper, lead, steel, XLPE per km) estimated from manufacturer geometry and validated against the listed cable weights
+- a Brightway workflow that turns ecoinvent into impact factors per material class, coupled directly to the optimiser so every candidate design is scored for four impact categories
+- a cost model (CAPEX, OPEX, discounted LCOE) built from BVG Associates' published figures
+- the NSGA-II problem set-ups: design variables, objectives and constraints for layout, distance to shore and turbine size, run with pymoo
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    GWA[Global Wind Atlas<br/>100 m + 150 m layers] --> T[Wind speed vs<br/>distance offshore]
+    T --> PW[PyWake wake model<br/>AEP for any layout]
+    TM[Turbine mass model<br/>Li et al. 2022] --> INV[Material inventory<br/>per design]
+    ABB[ABB cable geometry] --> INV
+    EI[Brightway + ecoinvent 3.9.1<br/>ReCiPe 2016 midpoint H] --> F[Impact per kg<br/>of each material]
+    INV --> LCA[GWP, resources, water,<br/>ecotoxicity per MWh]
+    F --> LCA
+    BVG[BVG cost data] --> C[CAPEX, OPEX, LCOE]
+    PW --> OBJ{NSGA-II<br/>pymoo}
+    LCA --> OBJ
+    C --> OBJ
+    OBJ --> P[Pareto fronts]
 ```
-Global Wind Atlas (100 m + 150 m layers)  →  wind speed vs distance offshore
-PyWake (Niayifar & Porté-Agel wake model)  →  annual energy for any layout and site
-Turbine mass model (Li et al. 2022)        →  nacelle, rotor, tower, jacket masses for 8–12 MW
-ABB cable datasheets                       →  copper, lead, steel, XLPE per km of cable
-Brightway 2.5 + ecoinvent 3.9.1 (APOS)     →  impact per kg of each material, ReCiPe 2016 midpoint (H)
-Cost model (BVG Associates 2025)           →  CAPEX, OPEX, LCOE
-NSGA-II (pymoo)                            →  Pareto fronts: energy vs LCOE, energy vs GWP
-```
 
-Brightway is called directly from the optimisation notebook. Impacts are calculated once per material class (13 classes, four impact categories), so each candidate design is scored by multiplying masses by factors rather than by running a new LCA. That keeps each evaluation cheap enough for 30,000 designs per run.
+Impacts are calculated once per material class (13 classes, four impact categories), so each candidate design is scored by multiplying masses by factors rather than running a new LCA. That keeps each evaluation cheap enough for 30,000 designs per run.
 
 ## Findings
 
@@ -54,9 +93,7 @@ Both export cables carry more lead than copper.
 
 Notebook 07 keeps the notebook 06 farm (8 × 10 MW) and swaps LCOE for life cycle GWP per MWh, using the same 220 kV export cable that the £2M/km cost represents. The lowest-carbon design is then at the 10 km bound, like the cheapest one, at 9.1 kg CO2e/MWh. From there to 76 km, GWP per MWh rises 24% (9.1 → 11.3), against 46% for LCOE, on the same 6.3% gain in energy. The extra energy from moving offshore carries about 45 kg CO2e per MWh, roughly five times the near-shore average; for cost the same ratio is about nine.
 
-![Cost and carbon vs distance](figures/07_cost_vs_carbon_distance.png)
-
-The 220 kV cable is heavy: 27 t of copper, 30 t of lead and 27 t of steel per km, 407 t CO2e/km and 92,900 t 1,4-DCB/km. With the farm 50 km out, it is about 21% of the farm's GWP, 32% of its water use and 78% of its terrestrial ecotoxicity. Over 10 to 76 km, ecotoxicity per MWh rises about 3.5-fold, water use 1.5-fold and mineral resource use 1.4-fold, all faster than GWP.
+The 220 kV cable is heavy: 27 t of copper, 30 t of lead and 27 t of steel per km, 407 t CO2e/km and 92,900 t 1,4-DCB/km. With the farm 50 km out, it is 21% of the farm's GWP, 27% of its mineral resource use, 32% of its water use and 78% of its terrestrial ecotoxicity. From 10 to 76 km, ecotoxicity per MWh rises 3.4-fold, water use 1.5-fold and mineral resource use 1.4-fold, against 1.24-fold for GWP.
 
 ### What happens with a cable sized to the farm
 
@@ -97,7 +134,7 @@ In notebook 08, letting turbine capacity vary from 8 to 12 MW (rotor diameter an
 | 07 | [Life cycle impacts](07_life_cycle_impacts_siting.ipynb) | Brightway + ecoinvent material factors, turbine and cable inventories, energy vs GWP per MWh with the 220 kV export cable | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Thashmikab/offshore-wind-layout-cable-tradeoff/blob/main/07_life_cycle_impacts_siting.ipynb) |
 | 08 | [Turbine size](08_turbine_size_optimisation.ipynb) | Turbine capacity (8–12 MW) as a design variable alongside layout and distance, with a 132 kV export cable sized to the farm; all four impact categories along the front | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Thashmikab/offshore-wind-layout-cable-tradeoff/blob/main/08_turbine_size_optimisation.ipynb) |
 
-Each notebook runs top to bottom in Colab. The optimisation notebooks take several minutes to over an hour, since every candidate is evaluated against the full wind rose.
+Each notebook runs top to bottom in Colab. Notebooks 01–05 take minutes; the optimisation runs in 06–08 take much longer, and 08 (300 generations) can take over an hour, because every candidate design is evaluated against the full wind rose.
 
 Notebook 07 needs an ecoinvent licence to run the Brightway part: add your credentials as Colab secrets named `ECOINVENT_USER` and `ECOINVENT_PASS`, and expect the database import to take 10–15 minutes. Without a licence, set `USE_BRIGHTWAY = False` and it runs from the published factors in `data/lca_factors_materials.csv`, which is also what notebook 08 reads. Only aggregated impact results are published here; no ecoinvent inventory data is included.
 
@@ -119,9 +156,19 @@ jupyter lab
 - Wake models: Bastankhah, M. & Porté-Agel, F. (2014), *Renewable Energy* 70; Niayifar, A. & Porté-Agel, F. (2016), *Energies* 9(9).
 - Tools: PyWake and TopFarm (DTU Wind Energy), pymoo (Blank & Deb 2020), Brightway 2.5 (Mutel 2017).
 
-## What's next
+## Roadmap
 
-Next: a sourced installed cost for the 132 kV cable, so the right-sized case gets an LCOE front too; LCOE and GWP per MWh as two objectives on one front; vessel fuel for installation and O&M, which grows with distance and may pull the carbon optimum back towards the shore; per-segment array cable sizing; a fixed power density in the turbine-size study; and a unit-cell version of the farm.
+- [x] Wake modelling and single-objective layout optimisation (01–02)
+- [x] Energy vs cable length with NSGA-II (03–04)
+- [x] Global Wind Atlas transect and distance to shore as a variable (05)
+- [x] Techno-economic siting and layout (06)
+- [x] Brightway life cycle impacts coupled to the optimiser (07)
+- [x] Turbine size as a design variable (08)
+- [ ] Sourced installed cost for the 132 kV cable, so the right-sized case gets an LCOE front
+- [ ] LCOE and GWP per MWh as two objectives on one front
+- [ ] Vessel fuel for installation and O&M, which grows with distance
+- [ ] Array cables sized segment by segment from the current each carries
+- [ ] Turbine-size study at fixed power density
 
 If you model array cables or offshore LCA and think a choice here is wrong (the MST proxy, the fixed lease area, how the export cable is allocated), open an issue or get in touch. I'd like to hear how you'd do it.
 

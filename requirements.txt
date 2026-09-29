@@ -9,3 +9,7 @@ matplotlib
 netCDF4
 h5py
 jupyter
+brightway25
+rasterio
+pyproj
+global-land-mask
