@@ -174,6 +174,6 @@ If you model array cables or offshore LCA and think a choice here is wrong (the 
 
 ---
 
-Thashmika Bandara, PhD candidate in Electrical Engineering, City St George's, University of London. The PhD looks at copper and other critical materials in UK renewable energy deployment; this repository is where that work meets wind farm design. · [LinkedIn](TODO)
+Thashmika Bandara, PhD candidate in Electrical Engineering, City St George's, University of London. The PhD looks at copper and other critical materials in UK renewable energy deployment; this repository is where that work meets wind farm design. · www.linkedin.com/in/thashmika-bandara-kmtr
 
 Released under the MIT licence.
